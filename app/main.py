@@ -1,3 +1,6 @@
+# API Key Auth — coming soon
+# Placeholder added by Dev 1
+
 from fastapi import FastAPI
 from app.routes import chat, embeddings, models
 
