@@ -1,15 +1,14 @@
 from fastapi import APIRouter, HTTPException
-from app.schemas import ChatRequest, ChatResponse
+from fastapi.responses import StreamingResponse
+from app.schemas import ChatRequest
 from langchain_ollama import ChatOllama
 from langchain_core.messages import HumanMessage, SystemMessage
 import os
 
-
+router = APIRouter()
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 
-router = APIRouter()
-
-@router.post("/chat", response_model=ChatResponse)
+@router.post("/chat")
 async def chat(request: ChatRequest):
     try:
         llm = ChatOllama(
@@ -22,11 +21,15 @@ async def chat(request: ChatRequest):
             SystemMessage(content=request.system_prompt),
             HumanMessage(content=request.message)
         ]
-        response = await llm.ainvoke(messages)
-        return ChatResponse(
-            model=request.model,
-            message=response.content,
-            done=True
+
+        async def token_generator():
+            async for chunk in llm.astream(messages):
+                if chunk.content:
+                    yield chunk.content
+
+        return StreamingResponse(
+            token_generator(),
+            media_type="text/plain"
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
